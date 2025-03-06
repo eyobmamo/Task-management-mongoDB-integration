@@ -48,6 +48,7 @@ func CreateToken(user models.User) (string, error) {
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 		"user_id": user.ID,
+		"role": user.Role,
 		"email":   user.Email,
 		"exp":     time.Now().Add(time.Hour * 72).Unix(),
 	})
@@ -70,6 +71,10 @@ func (us *UserService) RegisterUser(newUser models.User) error {
 	err := us.collection.FindOne(context.Background(), bson.M{"email": newUser.Email}).Decode(&existingUser)
 	if err == nil {
 		return errors.New("user exists")
+	}
+
+	if newUser.Password == "" {
+		return errors.New("password cannot be empty")
 	}
 
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(newUser.Password), bcrypt.DefaultCost)

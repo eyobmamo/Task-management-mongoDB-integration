@@ -4,6 +4,7 @@ import (
 	"TM/models"
 	"context"
 	"fmt"
+
 	// "time"
 
 	// "log"
@@ -14,63 +15,62 @@ import (
 	// "go.mongodb.org/mongo-driver/mongo/options"
 )
 
-type  TaskManager interface {
-	GetTask() ([]models.Task,error)
-	GetTaskByID(TaskID string) (models.Task,error)
-	UpdateTaskByID(TaskID string,updateTask models.Task) error
+type TaskManager interface {
+	// GetTask() ([]models.Task, error)   othe feacher to retrive all user task
+	GetTask(UserID string) ([]models.Task, error)
+	GetTaskByID(TaskID string) (models.Task, error)
+	UpdateTaskByID(TaskID string, updateTask models.Task) error
 	DeleteTaskByID(TaskID string) error
-	CreateTask(newTask models.Task) error 
+	CreateTask(newTask models.Task) error
 }
 
-// type TaskService struct {
-// 	Tasks map[int]models.Task
-// }
+//	type TaskService struct {
+//		Tasks map[int]models.Task
+//	}
 type TaskService struct {
 	collection *mongo.Collection
 }
-
-
-
 
 // func NewTaskService() *TaskService {
 // 	ts := &TaskService{
 // 		Tasks: make(map[int]models.Task),
 // 	}
 
-func NewTaskService(client *mongo.Client,dbName,collectionName string) *TaskService{
+func NewTaskService(client *mongo.Client, dbName, collectionName string) *TaskService {
 	return &TaskService{
-		collection : client.Database(dbName).Collection(collectionName),
+		collection: client.Database(dbName).Collection(collectionName),
 	}
-} 
-
-
+}
 
 // func (tc *TaskService) GetTask () []models.Task {
-// 	var tasks []models.Task 
+// 	var tasks []models.Task
 // 	for _,task := range tc.Tasks{
 // 		tasks= append(tasks, task)
 // 	}
 // 	return tasks
 // }
 
-func (ts *TaskService) GetTask() ([]models.Task,error){
-	var tasks []models.Task
-	cursor,err := ts.collection.Find(context.TODO(),bson.M{})
+func (ts *TaskService) GetTask(UserID string) ([]models.Task, error) {
+	userObject, err := primitive.ObjectIDFromHex(UserID)
 	if err != nil {
-		return nil,err
+		return nil, err
+	}
+	var tasks []models.Task
+	filter := bson.M{"user_id": userObject}
+	cursor, err := ts.collection.Find(context.TODO(), filter)
+	if err != nil {
+		return nil, err
 	}
 	defer cursor.Close(context.TODO())
-	for cursor.Next(context.TODO()){
+	for cursor.Next(context.TODO()) {
 		var task models.Task
-		if err := cursor.Decode(&task);err != nil {
-			return nil,err
+		if err := cursor.Decode(&task); err != nil {
+			return nil, err
 		}
-		tasks = append(tasks,task)
+		tasks = append(tasks, task)
 	}
-	return tasks,nil
+	return tasks, nil
 }
-
-
 
 // func (tc *TaskService) GetTaskByID(TaskID int) (*models.Task, error) {
 // 	task, exist := tc.Tasks[TaskID]
@@ -81,20 +81,19 @@ func (ts *TaskService) GetTask() ([]models.Task,error){
 // 	return &task, nil
 // }
 
-func (ts *TaskService) GetTaskByID(taskID string) (models.Task,error){
+func (ts *TaskService) GetTaskByID(taskID string) (models.Task, error) {
 	var task models.Task
 
-	objectID,err := primitive.ObjectIDFromHex(taskID)
+	objectID, err := primitive.ObjectIDFromHex(taskID)
 	if err != nil {
-		return task,err
+		return task, err
 	}
 
-	filter := bson.M{"_id":objectID}
+	filter := bson.M{"_id": objectID}
 
-	error := ts.collection.FindOne(context.TODO(),filter).Decode(&task)
-	return task,error
+	error := ts.collection.FindOne(context.TODO(), filter).Decode(&task)
+	return task, error
 }
-
 
 // func (tc *TaskService) UpdateTaskByID(TaskID int, UpdateTask models.Task) error {
 // 	task, Exist := tc.Tasks[TaskID]
@@ -115,18 +114,35 @@ func (ts *TaskService) GetTaskByID(taskID string) (models.Task,error){
 // 	return nil
 // }
 
-func (ts *TaskService) UpdateTaskByID(id string,updatedTask models.Task) error {
-	objectID ,err := primitive.ObjectIDFromHex(id)
+func (ts *TaskService) UpdateTaskByID(id string, updatedTask models.Task) error {
+	objectID, err := primitive.ObjectIDFromHex(id)
 	if err != nil {
 		return err
 	}
 
-	filter := bson.M{"_id":objectID}
-	update := bson.M{"$set": updatedTask}
+	// Remove the _id field from the updatedTask to avoid modifying the immutable field
+	updatedTask.ID = primitive.NilObjectID
 
-	_,error := ts.collection.UpdateOne(context.TODO(),filter,update)
-	return error
+	filter := bson.M{"_id": objectID}
+	update := bson.M{
+		"$set": bson.M{
+			"title":       updatedTask.Title,
+			"description": updatedTask.Description,
+			"due_date":    updatedTask.Due_date,
+			"status":      updatedTask.Status,
+		},
+	}
+
+	result, err := ts.collection.UpdateOne(context.TODO(), filter, update)
+	if err != nil {
+		return err
+	}
+	if result.MatchedCount == 0 {
+		return fmt.Errorf("no task found with the given ID")
+	}
+	return nil
 }
+
 // func (tc *TaskService) DeleteTaskByID(TaskID int) error {
 // 	_,exist := tc.Tasks[TaskID]
 // 	if !exist {
@@ -150,12 +166,12 @@ func (ts *TaskService) UpdateTaskByID(id string,updatedTask models.Task) error {
 // }
 
 func (ts *TaskService) DeleteTaskByID(TaskID string) error {
-	objectID,err := primitive.ObjectIDFromHex(TaskID)
+	objectID, err := primitive.ObjectIDFromHex(TaskID)
 
 	if err != nil {
 		return err
 	}
-	filter := bson.M{"_id":objectID}
+	filter := bson.M{"_id": objectID}
 
 	result, err := ts.collection.DeleteOne(context.TODO(), filter)
 	if err != nil {
@@ -175,7 +191,7 @@ func (ts *TaskService) DeleteTaskByID(TaskID string) error {
 // 	return nil
 // }
 
-func (ts *TaskService) CreateTask (task models.Task) error {
-	_,err := ts.collection.InsertOne(context.TODO(),task)
+func (ts *TaskService) CreateTask(task models.Task) error {
+	_, err := ts.collection.InsertOne(context.TODO(), task)
 	return err
 }

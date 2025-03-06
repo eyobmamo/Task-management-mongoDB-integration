@@ -56,17 +56,19 @@ func AuthMiddleware() gin.HandlerFunc {
         }
 
         // Optionally, you can extract claims and set them in the context
-        if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
-            c.Set("claims", claims)
-        } else {
-            c.JSON(401, gin.H{"error": "Invalid JWT claims"})
-            c.Abort()
-            return
-        }
 
 		if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
-            userID := claims["user_id"].(string)
+			userID, userIDExists := claims["user_id"].(string)
+			role, roleExists := claims["role"].(string)
+
+			fmt.Printf("Extracted Claims - userID: %s, role: %s\n", userID, role)
+            if !userIDExists || !roleExists {
+                c.JSON(401, gin.H{"error": "Invalid JWT claims"})
+                c.Abort()
+                return
+            }
             c.Set("userID", userID)
+            c.Set("role", role)
         } else {
             c.JSON(401, gin.H{"error": "Invalid JWT claims"})
             c.Abort()

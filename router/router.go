@@ -15,6 +15,18 @@ func InitializeRouter() *gin.Engine {
 
 	// create a new gin router
 	router := gin.Default()
+	router.Use(func(c *gin.Context) {
+		c.Writer.Header().Set("Access-Control-Allow-Origin", "*")
+		c.Writer.Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE")
+		c.Writer.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+	
+		if c.Request.Method == "OPTIONS" {
+			c.AbortWithStatus(204) // No content for OPTIONS requests
+			return
+		}
+	
+		c.Next()
+	})
 
 	taskService := data.NewTaskService(client,"taskmanagment","tasks")
 	TaskController := controllers.NewTaskController(taskService)
