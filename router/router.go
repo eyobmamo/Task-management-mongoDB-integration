@@ -1,11 +1,12 @@
 package router
 
 import (
-	"github.com/gin-gonic/gin"
-	"TM/data"
 	"TM/controllers"
+	"TM/data"
 	"TM/db"
-	
+	"TM/middleware"
+
+	"github.com/gin-gonic/gin"
 )
 
 func InitializeRouter() *gin.Engine {
@@ -18,15 +19,20 @@ func InitializeRouter() *gin.Engine {
 	taskService := data.NewTaskService(client,"taskmanagment","tasks")
 	TaskController := controllers.NewTaskController(taskService)
 
-	router.GET("/tasks",TaskController.GetTaskController)
+	userService  := data.NewUserService(client,"taskmanagment","users")
+	UserController := controllers.NewUserController(userService)
 
-	router.GET("/tasks/:id",TaskController.GetTaskByIDController)
+	router.POST("/Register",UserController.RegisterUserController)
+	router.POST("/Login",UserController.LoginUserController)
 
-	router.PUT("/tasks/:id",TaskController.UpdateTaskByIDController)
+	// Middleware to secure routes
+	secureRoutes := router.Group("/").Use(middleware.AuthMiddleware())
 
-	router.DELETE("/tasks/:id",TaskController.DeleteTaskByIDController)
-
-	router.POST("/tasks",TaskController.CreateTaskController)
+	secureRoutes.GET("/tasks", TaskController.GetTaskController)
+	secureRoutes.GET("/tasks/:id", TaskController.GetTaskByIDController)
+	secureRoutes.PUT("/tasks/:id", TaskController.UpdateTaskByIDController)
+	secureRoutes.DELETE("/tasks/:id", TaskController.DeleteTaskByIDController)
+	secureRoutes.POST("/tasks", TaskController.CreateTaskController)
 
 	return router
 	

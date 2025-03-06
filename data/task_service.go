@@ -3,7 +3,7 @@ package data
 import (
 	"TM/models"
 	"context"
-	// "fmt"
+	"fmt"
 	// "time"
 
 	// "log"
@@ -157,8 +157,14 @@ func (ts *TaskService) DeleteTaskByID(TaskID string) error {
 	}
 	filter := bson.M{"_id":objectID}
 
-	_,err = ts.collection.DeleteOne(context.TODO(),filter)
-	return err
+	result, err := ts.collection.DeleteOne(context.TODO(), filter)
+	if err != nil {
+		return err
+	}
+	if result.DeletedCount == 0 {
+		return fmt.Errorf("no task found with the given ID")
+	}
+	return nil
 }
 
 // func (tc *TaskService) CreateTask(newTask *models.Task) error {

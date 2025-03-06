@@ -6,3 +6,4 @@ func main(){
 	router := router.InitializeRouter()
 	router.Run("localhost:8081")
 }
+
